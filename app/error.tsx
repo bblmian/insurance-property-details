@@ -16,7 +16,7 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <main className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="max-w-md w-full space-y-8 p-6">
         <div className="text-center">
           <AlertTriangle className="mx-auto h-12 w-12 text-red-500" />
@@ -45,6 +45,6 @@ export default function Error({
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   )
 } 
