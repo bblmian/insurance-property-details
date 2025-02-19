@@ -1,9 +1,7 @@
-'use client'
-
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-export default function NotFoundCatchAll() {
+export default function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="max-w-md w-full space-y-8 p-6">
