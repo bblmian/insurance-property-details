@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
+import { ErrorBoundary } from '@/components/error-boundary'
+import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: '保险财产标的管理系统',
+  description: '用于管理和追踪保险财产标的信息',
 }
 
 export default function RootLayout({
@@ -16,9 +17,12 @@ export default function RootLayout({
   return (
     <html lang="zh">
       <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+          <Toaster />
+        </ErrorBoundary>
       </body>
     </html>
   )

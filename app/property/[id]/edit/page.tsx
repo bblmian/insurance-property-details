@@ -1,16 +1,17 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Camera, MapPin, QrCode, Wifi } from "lucide-react"
 import { propertyApi } from "@/lib/api"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Property } from "@/types/supabase"
 
-export default function NewPropertyPage() {
+export default function EditPropertyPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     name: "",
     company: "",
@@ -25,26 +26,45 @@ export default function NewPropertyPage() {
     serialCode: "",
   })
 
+  useEffect(() => {
+    const fetchProperty = async () => {
+      try {
+        setLoading(true)
+        const data = await propertyApi.getBySerialNumber(params.id)
+        if (data) {
+          const metadata = data.metadata || {}
+          setFormData({
+            name: data.name,
+            company: metadata.company || "",
+            businessType: metadata.businessType || "",
+            stationType: metadata.stationType || "",
+            riskLevel: metadata.riskLevel || "",
+            businessNature: data.category || "",
+            province: metadata.address?.province || "",
+            city: metadata.address?.city || "",
+            district: metadata.address?.district || "",
+            address: metadata.address?.detail || "",
+            serialCode: data.serial_number,
+          })
+        }
+      } catch (err: any) {
+        setError(err.message || '获取物料信息失败')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProperty()
+  }, [params.id])
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleScanCode = (method: "qr" | "nfc") => {
-    router.push(`/scan/${method}?returnTo=/property/new`)
-  }
-
-  useEffect(() => {
-    const serialCode = localStorage.getItem("scannedSerialCode")
-    if (serialCode) {
-      setFormData((prev) => ({ ...prev, serialCode }))
-      localStorage.removeItem("scannedSerialCode")
-    }
-  }, [])
-
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+    e.preventDefault()
+    setError(null)
     
     try {
       const propertyData = {
@@ -52,7 +72,6 @@ export default function NewPropertyPage() {
         name: formData.name,
         description: `${formData.businessType} - ${formData.stationType}`,
         category: formData.businessNature,
-        status: 'active' as const,
         location: `${formData.province}${formData.city}${formData.district}${formData.address}`,
         metadata: {
           company: formData.company,
@@ -67,15 +86,15 @@ export default function NewPropertyPage() {
             detail: formData.address
           }
         }
-      };
+      }
 
-      const newProperty = await propertyApi.create(propertyData);
-      router.push(`/property/${newProperty.serial_number}`);
+      await propertyApi.update(params.id, propertyData)
+      router.push(`/property/${formData.serialCode}`)
     } catch (error: any) {
-      console.error('创建物料失败:', error);
-      setError(error.message || '创建物料失败，请重试');
+      console.error('更新物料失败:', error)
+      setError(error.message || '更新物料失败，请重试')
     }
-  };
+  }
 
   const handleWechatLocation = () => {
     // 这里应该是调用微信SDK的地理位置API
@@ -90,17 +109,25 @@ export default function NewPropertyPage() {
     }))
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-gray-600 dark:text-gray-300">加载中...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <div className="max-w-md mx-auto p-4">
         <Link
-          href="/"
+          href={`/property/${params.id}`}
           className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           返回
         </Link>
-        <h1 className="text-2xl font-bold mt-6 mb-6 text-gray-900 dark:text-gray-100">新增物料</h1>
+        <h1 className="text-2xl font-bold mt-6 mb-6 text-gray-900 dark:text-gray-100">编辑物料</h1>
         
         {error && (
           <Alert variant="destructive" className="mb-6">
@@ -197,33 +224,18 @@ export default function NewPropertyPage() {
               required
             />
           </div>
-          <div className="relative">
+          <div>
+            <label htmlFor="serialCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              序列号
+            </label>
             <input
               type="text"
               id="serialCode"
               name="serialCode"
               value={formData.serialCode}
-              onChange={handleInputChange}
-              className="w-full py-3 pr-20 pl-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500 text-base"
-              placeholder="财产标的序列码"
-              required
+              readOnly
+              className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
             />
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-2">
-              <button
-                type="button"
-                onClick={() => handleScanCode("qr")}
-                className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
-              >
-                <QrCode className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleScanCode("nfc")}
-                className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
-              >
-                <Wifi className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-              </button>
-            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">邮寄地址</label>
@@ -297,12 +309,11 @@ export default function NewPropertyPage() {
               type="submit"
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-600"
             >
-              提交
+              保存修改
             </button>
           </div>
         </form>
       </div>
     </div>
   )
-}
-
+} 

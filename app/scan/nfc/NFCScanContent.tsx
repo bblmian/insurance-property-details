@@ -1,14 +1,18 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { checkDeviceCapabilities } from '@/lib/device-utils'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
+import { validateSerialNumber, formatSerialNumber } from '@/lib/scan-utils'
+import { ScanHistory } from '@/lib/scan-history'
 
 export default function NFCScanContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get('returnTo')
   const [isScanning, setIsScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deviceInfo, setDeviceInfo] = useState<{
@@ -25,57 +29,104 @@ export default function NFCScanContent() {
     })
   }, [])
 
+  const handleNFCData = (message: any) => {
+    const startTime = Date.now();
+    try {
+      const records = message.records;
+      if (!records || records.length === 0) {
+        throw new Error('NFC标签数据为空');
+      }
+
+      const rawSerialNumber = new TextDecoder().decode(records[0].data);
+      const formattedSerialNumber = formatSerialNumber(rawSerialNumber);
+      
+      if (!validateSerialNumber(formattedSerialNumber)) {
+        throw new Error('无效的序列号格式');
+      }
+
+      // 记录成功的扫描
+      ScanHistory.addRecord({
+        timestamp: Date.now(),
+        type: 'NFC',
+        serialNumber: formattedSerialNumber,
+        success: true,
+        duration: Date.now() - startTime,
+        deviceInfo: {
+          platform: deviceInfo?.platform || 'unknown',
+        },
+      });
+      
+      if (returnTo === '/property/new') {
+        localStorage.setItem('scannedSerialCode', formattedSerialNumber);
+        router.push(returnTo);
+      } else {
+        router.push(`/property/${formattedSerialNumber}`);
+      }
+    } catch (err: any) {
+      setError(err.message || '无法读取NFC标签数据');
+      // 记录失败的扫描
+      ScanHistory.addRecord({
+        timestamp: Date.now(),
+        type: 'NFC',
+        serialNumber: '',
+        success: false,
+        error: err.message,
+        duration: Date.now() - startTime,
+        deviceInfo: {
+          platform: deviceInfo?.platform || 'unknown',
+        },
+      });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const startNFCScan = async () => {
-    setError(null)
-    setIsScanning(true)
+    const startTime = Date.now();
+    setError(null);
+    setIsScanning(true);
 
     try {
       if (deviceInfo?.platform === 'iOS') {
-        // iOS NFC 扫描实现
         if ('NFCReader' in window) {
-          const reader = new (window as any).NFCReader()
+          const reader = new (window as any).NFCReader();
           reader.onreading = (event: any) => {
-            handleNFCData(event.message)
-          }
-          await reader.scan()
+            handleNFCData(event.message);
+          };
+          await reader.scan();
         } else {
-          throw new Error('此设备不支持NFC功能')
+          throw new Error('此设备不支持NFC功能');
         }
       } else if (deviceInfo?.platform === 'Android') {
-        // Android NFC 扫描实现
         if ('NDEFReader' in window) {
-          const ndef = new (window as any).NDEFReader()
+          const ndef = new (window as any).NDEFReader();
           ndef.addEventListener('reading', ({ message }: any) => {
-            handleNFCData(message)
-          })
-          await ndef.scan()
+            handleNFCData(message);
+          });
+          await ndef.scan();
         } else {
-          throw new Error('此设备不支持NFC功能')
+          throw new Error('此设备不支持NFC功能');
         }
       } else {
-        throw new Error('不支持的设备类型')
+        throw new Error('不支持的设备类型');
       }
     } catch (err: any) {
-      setError(err.message || '扫描过程中出现错误')
-      setIsScanning(false)
+      setError(err.message || '扫描过程中出现错误');
+      setIsScanning(false);
+      // 记录失败的扫描
+      ScanHistory.addRecord({
+        timestamp: Date.now(),
+        type: 'NFC',
+        serialNumber: '',
+        success: false,
+        error: err.message,
+        duration: Date.now() - startTime,
+        deviceInfo: {
+          platform: deviceInfo?.platform || 'unknown',
+        },
+      });
     }
-  }
-
-  const handleNFCData = (message: any) => {
-    try {
-      // 处理NFC数据
-      const records = message.records
-      if (records && records.length > 0) {
-        const serialNumber = new TextDecoder().decode(records[0].data)
-        // 导航到财产详情页面
-        router.push(`/property/${serialNumber}`)
-      }
-    } catch (err: any) {
-      setError('无法读取NFC标签数据')
-    } finally {
-      setIsScanning(false)
-    }
-  }
+  };
 
   if (!deviceInfo) {
     return <div className="p-4">正在检查设备兼容性...</div>

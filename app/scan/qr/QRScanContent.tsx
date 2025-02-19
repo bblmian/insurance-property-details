@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { checkDeviceCapabilities } from '@/lib/device-utils';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,9 +15,12 @@ import {
   ScanScheduler 
 } from '@/lib/scan-performance';
 import { ScanHistory } from '@/lib/scan-history';
+import { validateSerialNumber, formatSerialNumber } from '@/lib/scan-utils';
 
 export default function QRScanContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get('returnTo');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -104,7 +107,6 @@ export default function QRScanContent() {
     performanceMonitor.current.recordScanAttempt();
 
     try {
-      // 使用图像处理器优化扫描
       const imageData = imageProcessor.current.optimizeForScanning(
         video,
         defaultScanConfig.qrScan.processingQuality
@@ -113,16 +115,15 @@ export default function QRScanContent() {
       const code = jsQR(imageData.data, imageData.width, imageData.height);
 
       if (code) {
-        // 检查是否是有效的序列号格式
-        if (isValidSerialNumber(code.data)) {
+        const formattedSerialNumber = formatSerialNumber(code.data);
+        if (validateSerialNumber(formattedSerialNumber)) {
           performanceMonitor.current.recordSuccessfulScan();
           const metrics = performanceMonitor.current.getScanMetrics();
 
-          // 记录成功的扫描
           ScanHistory.addRecord({
             timestamp: Date.now(),
             type: 'QR',
-            serialNumber: code.data,
+            serialNumber: formattedSerialNumber,
             success: true,
             duration: metrics.duration,
             deviceInfo: {
@@ -132,7 +133,13 @@ export default function QRScanContent() {
           });
 
           stopCamera();
-          router.push(`/property/${code.data}`);
+          
+          if (returnTo === '/property/new') {
+            localStorage.setItem('scannedSerialCode', formattedSerialNumber);
+            router.push(returnTo);
+          } else {
+            router.push(`/property/${formattedSerialNumber}`);
+          }
           return;
         } else {
           setError(getErrorDetails('CAMERA_QR_INVALID'));

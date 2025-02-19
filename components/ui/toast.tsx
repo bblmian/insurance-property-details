@@ -4,6 +4,7 @@ import * as React from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
+import { toast } from 'sonner'
 
 import { cn } from "@/lib/utils"
 
@@ -126,4 +127,46 @@ export {
   ToastDescription,
   ToastClose,
   ToastAction,
+}
+
+export const showSuccess = (message: string) => {
+  toast.success(message)
+}
+
+export const showError = (message: string) => {
+  toast.error(message)
+}
+
+export const showInfo = (message: string) => {
+  toast.info(message)
+}
+
+export const showWarning = (message: string) => {
+  toast.warning(message)
+}
+
+export const showLoading = (message: string) => {
+  return toast.loading(message)
+}
+
+export const dismissToast = (id: string) => {
+  toast.dismiss(id)
+}
+
+export const updateToast = (id: string, message: string, type: 'success' | 'error' | 'info' | 'warning') => {
+  toast.dismiss(id)
+  switch (type) {
+    case 'success':
+      toast.success(message)
+      break
+    case 'error':
+      toast.error(message)
+      break
+    case 'info':
+      toast.info(message)
+      break
+    case 'warning':
+      toast.warning(message)
+      break
+  }
 }
