@@ -25,6 +25,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     // 检查初始会话
     const initAuth = async () => {
       try {
