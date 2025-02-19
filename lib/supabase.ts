@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-let supabase;
+let supabase: SupabaseClient;
 
 // 在服务器端构建时跳过
 if (typeof window === 'undefined') {

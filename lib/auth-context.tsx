@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
+import { User, SupabaseClient, AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
 interface AuthContextType {
@@ -12,21 +12,35 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({
+// 创建默认上下文值
+const defaultContextValue: AuthContextType = {
   user: null,
-  loading: true,
-  signIn: async () => {},
-  signUp: async () => {},
-  signOut: async () => {},
-});
+  loading: false,
+  signIn: async () => {
+    throw new Error('AuthContext not initialized');
+  },
+  signUp: async () => {
+    throw new Error('AuthContext not initialized');
+  },
+  signOut: async () => {
+    throw new Error('AuthContext not initialized');
+  },
+};
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+// 创建上下文
+const AuthContext = createContext<AuthContextType>(defaultContextValue);
+
+// 服务器端占位组件
+function ServerAuthProvider({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+// 客户端 Provider 组件
+function ClientAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
     // 检查初始会话
     const initAuth = async () => {
       try {
@@ -36,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // 监听认证状态变化
         const {
           data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
           setUser(session?.user ?? null);
         });
 
@@ -115,6 +129,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// 导出 Provider 组件
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // 根据环境选择合适的 Provider
+  if (typeof window === 'undefined') {
+    return <ServerAuthProvider>{children}</ServerAuthProvider>;
+  }
+  return <ClientAuthProvider>{children}</ClientAuthProvider>;
+}
+
+// 导出 hook
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
