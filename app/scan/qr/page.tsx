@@ -1,13 +1,15 @@
 "use client"
 
 import { Suspense } from "react"
-import QRScanContent from "./QRScanContent"
+import dynamic from 'next/dynamic';
+
+// 动态导入 QRScanContent 组件，禁用 SSR
+const QRScanContent = dynamic(
+  () => import('./QRScanContent'),
+  { ssr: false }
+);
 
 export default function QRScanPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <QRScanContent />
-    </Suspense>
-  )
+  return <QRScanContent />;
 }
 

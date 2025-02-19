@@ -1,6 +1,12 @@
 "use client"
 import { Suspense } from "react"
-import NFCScanContent from "./NFCScanContent"
+import dynamic from 'next/dynamic';
+
+// 动态导入 NFCScanContent 组件，禁用 SSR
+const NFCScanContent = dynamic(
+  () => import('./NFCScanContent'),
+  { ssr: false }
+);
 
 export default function NFCScanPage() {
   return (

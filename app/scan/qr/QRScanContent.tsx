@@ -29,11 +29,16 @@ export default function QRScanContent() {
   } | null>(null);
 
   // 性能相关实例
-  const performanceMonitor = new ScanPerformanceMonitor();
-  const imageProcessor = new ImageProcessor();
-  const scanScheduler = new ScanScheduler(defaultScanConfig);
+  const performanceMonitor = useRef(new ScanPerformanceMonitor());
+  const imageProcessor = useRef<ImageProcessor | null>(null);
+  const scanScheduler = useRef(new ScanScheduler(defaultScanConfig));
 
   useEffect(() => {
+    // 初始化图像处理器
+    if (typeof window !== 'undefined') {
+      imageProcessor.current = new ImageProcessor();
+    }
+
     checkDeviceCapabilities().then((capabilities) => {
       setDeviceInfo({
         hasCamera: capabilities.hasCamera,
@@ -41,12 +46,16 @@ export default function QRScanContent() {
         model: capabilities.model,
       });
     });
+
+    return () => {
+      stopCamera();
+    };
   }, []);
 
   const startCamera = async () => {
     setError(null);
     setIsScanning(true);
-    performanceMonitor.startScan();
+    performanceMonitor.current.startScan();
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -60,7 +69,7 @@ export default function QRScanContent() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
-        scanScheduler.scheduleQRScan(scanQRCode);
+        scanScheduler.current.scheduleQRScan(scanQRCode);
       }
     } catch (err: any) {
       const scanError = handleScanError(err);
@@ -74,7 +83,7 @@ export default function QRScanContent() {
         serialNumber: '',
         success: false,
         error: scanError.message,
-        duration: performanceMonitor.getScanMetrics().duration,
+        duration: performanceMonitor.current.getScanMetrics().duration,
         deviceInfo: {
           platform: deviceInfo?.platform || 'unknown',
           model: deviceInfo?.model,
@@ -84,7 +93,7 @@ export default function QRScanContent() {
   };
 
   const scanQRCode = () => {
-    if (!isScanning) return;
+    if (!isScanning || !imageProcessor.current) return;
 
     const video = videoRef.current;
     if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
@@ -92,11 +101,11 @@ export default function QRScanContent() {
       return;
     }
 
-    performanceMonitor.recordScanAttempt();
+    performanceMonitor.current.recordScanAttempt();
 
     try {
       // 使用图像处理器优化扫描
-      const imageData = imageProcessor.optimizeForScanning(
+      const imageData = imageProcessor.current.optimizeForScanning(
         video,
         defaultScanConfig.qrScan.processingQuality
       );
@@ -106,8 +115,8 @@ export default function QRScanContent() {
       if (code) {
         // 检查是否是有效的序列号格式
         if (isValidSerialNumber(code.data)) {
-          performanceMonitor.recordSuccessfulScan();
-          const metrics = performanceMonitor.getScanMetrics();
+          performanceMonitor.current.recordSuccessfulScan();
+          const metrics = performanceMonitor.current.getScanMetrics();
 
           // 记录成功的扫描
           ScanHistory.addRecord({
@@ -141,7 +150,7 @@ export default function QRScanContent() {
         serialNumber: '',
         success: false,
         error: scanError.message,
-        duration: performanceMonitor.getScanMetrics().duration,
+        duration: performanceMonitor.current.getScanMetrics().duration,
         deviceInfo: {
           platform: deviceInfo?.platform || 'unknown',
           model: deviceInfo?.model,
@@ -155,7 +164,7 @@ export default function QRScanContent() {
 
   const stopCamera = () => {
     setIsScanning(false);
-    scanScheduler.stop();
+    scanScheduler.current.stop();
     
     const video = videoRef.current;
     if (video && video.srcObject) {
@@ -169,12 +178,6 @@ export default function QRScanContent() {
     // 根据实际序列号格式进行验证
     return /^[A-Z0-9]{8,}$/.test(data);
   };
-
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, []);
 
   if (!deviceInfo) {
     return <div className="p-4">正在检查设备兼容性...</div>;
