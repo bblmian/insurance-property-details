@@ -17,6 +17,10 @@ export default function GlobalError({
 
   return (
     <html lang="zh">
+      <head>
+        <title>系统错误</title>
+        <meta name="description" content="抱歉，系统发生了错误。" />
+      </head>
       <body>
         <main className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
           <div className="max-w-md w-full space-y-8 p-6">
@@ -28,6 +32,11 @@ export default function GlobalError({
               <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
                 抱歉，系统发生了错误。
               </p>
+              {process.env.NODE_ENV === 'development' && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                  {error.message}
+                </p>
+              )}
             </div>
             
             <div className="mt-8 space-y-4">

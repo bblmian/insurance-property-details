@@ -26,6 +26,11 @@ export default function Error({
           <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
             抱歉，发生了一些错误。
           </p>
+          {process.env.NODE_ENV === 'development' && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+              {error.message}
+            </p>
+          )}
         </div>
         
         <div className="mt-8 space-y-4">
