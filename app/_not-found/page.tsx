@@ -1,12 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-export const metadata = {
-  title: '404: 页面未找到',
-  description: '抱歉，您访问的页面不存在。',
-}
-
-export default function NotFoundPage() {
+export default function NotFound() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="max-w-md w-full space-y-8 p-6">
